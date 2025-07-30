@@ -25,4 +25,7 @@ export class EnvironmentVariables {
   @IsString() SMEE_GITHUB_WEBHOOK_TARGET_URL: string
   @IsString() SMEE_GITHUB_AUTH_CALLBACK_SOURCE_URL: string
   @IsString() SMEE_GITHUB_AUTH_CALLBACK_TARGET_URL: string
+
+  // DRFR Website
+  @IsString() DRFR_WEBSITE_URL: string
 }

@@ -111,18 +111,36 @@ export class TranslationController {
 
   @Get('/list')
   async getAllTranslations(@Req() req: Request) {
-    const repositoryOwner = this.configService.getOrThrow('REPOSITORY_OWNER', { infer: true })
-    const repositoryName = this.configService.getOrThrow('REPOSITORY_NAME', { infer: true })
-    const mainBranch = this.configService.getOrThrow('REPOSITORY_MAIN_BRANCH', { infer: true })
+    try {
+      const repositoryOwner = this.configService.getOrThrow('REPOSITORY_OWNER', { infer: true })
+      const repositoryName = this.configService.getOrThrow('REPOSITORY_NAME', { infer: true })
+      const mainBranch = this.configService.getOrThrow('REPOSITORY_MAIN_BRANCH', { infer: true })
 
-    const response = await this.githubHttpService.fetch(
-      this.routeService.GITHUB_ROUTES.LIST_PULL_REQUESTS(repositoryOwner, repositoryName) +
-        `?base=${mainBranch}&state=all`,
-      { authorization: req.headers.authorization }
-    )
+      Logger.log(`Getting translations for ${repositoryOwner}/${repositoryName} on branch ${mainBranch}`)
+      Logger.log(`Authorization header: ${req.headers.authorization ? 'Present' : 'Missing'}`)
 
-    if (!response.ok) throw new Error(`Failed to fetch data ${response.status} ${response.statusText}`)
-    return (await response.json()) as unknown
+      const url = this.routeService.GITHUB_ROUTES.LIST_PULL_REQUESTS(repositoryOwner, repositoryName) +
+        `?base=${mainBranch}&state=all`
+      
+      Logger.log(`Making request to: ${url}`)
+
+      const response = await this.githubHttpService.fetch(url, { authorization: req.headers.authorization })
+
+      Logger.log(`GitHub API response: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        Logger.error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`)
+        throw new Error(`Failed to fetch data ${response.status} ${response.statusText} - ${errorText}`)
+      }
+      
+      const result = await response.json()
+      Logger.log(`Got ${Array.isArray(result) ? result.length : 'non-array'} results from GitHub`)
+      return result as unknown
+    } catch (error) {
+      Logger.error('Error in getAllTranslations:', error.message)
+      throw error
+    }
   }
 
   @Post('/')
@@ -529,5 +547,48 @@ export class TranslationController {
       throw new Error(`Failed to approve translation ${reviewResponse.status} ${reviewResponse.statusText}`)
 
     return { success: true }
+  }
+
+  @Post('/setup-labels')
+  async setupLabels(@Req() req: Request) {
+    const repositoryOwner = this.configService.getOrThrow('REPOSITORY_OWNER', { infer: true })
+    const repositoryName = this.configService.getOrThrow('REPOSITORY_NAME', { infer: true })
+    const translationLabel = this.configService.getOrThrow('TRANSLATION_LABEL_NAME', { infer: true })
+    const wipLabel = this.configService.getOrThrow('TRANSLATION_WIP_LABEL_NAME', { infer: true })
+    const reviewLabel = this.configService.getOrThrow('TRANSLATION_REVIEW_LABEL_NAME', { infer: true })
+
+    const labels = [
+      { name: translationLabel, color: '0075ca', description: 'Pull request de traduction' },
+      { name: wipLabel, color: 'd73a4a', description: 'Traduction en cours de développement' },
+      { name: reviewLabel, color: 'a2eeef', description: 'Traduction prête pour révision' }
+    ]
+
+    const createdLabels: string[] = []
+
+    for (const label of labels) {
+      try {
+        const response = await this.githubHttpService.fetch(
+          this.routeService.GITHUB_ROUTES.CREATE_LABEL(repositoryOwner, repositoryName),
+          {
+            method: 'POST',
+            authorization: req.headers.authorization,
+            body: label
+          }
+        )
+
+        if (response.ok) {
+          createdLabels.push(label.name)
+          Logger.log(`Created label: ${label.name}`)
+        } else if (response.status === 422) {
+          Logger.log(`Label already exists: ${label.name}`)
+        } else {
+          Logger.error(`Failed to create label ${label.name}: ${response.status} ${response.statusText}`)
+        }
+      } catch (error) {
+        Logger.error(`Error creating label ${label.name}:`, error.message)
+      }
+    }
+
+    return { createdLabels, message: 'Labels setup completed' }
   }
 }

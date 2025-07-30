@@ -1,8 +1,8 @@
-import { Body, Controller, Get, InternalServerErrorException, Logger, Post, Req } from '@nestjs/common'
+import { Body, Controller, Get, InternalServerErrorException, Logger, Post, Query, Req, Res } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Expose, plainToInstance } from 'class-transformer'
 import { IsNumber, IsString } from 'class-validator'
-import { Request } from 'express'
+import { Request, Response } from 'express'
 import { EnvironmentVariables } from 'src/env'
 import { RoutesService } from 'src/routes/routes.service'
 
@@ -58,6 +58,13 @@ export class AuthController {
     }
 
     return (await response.json()) as unknown
+  }
+
+  @Get('confirm')
+  async confirmAuthRedirect(@Query('code') code: string, @Res() res: Response) {
+    // Redirect GitHub OAuth callback to frontend
+    const frontendUrl = `http://localhost:1420/auth/confirm?code=${code}`
+    return res.redirect(frontendUrl)
   }
 
   @Post('confirm')

@@ -22,6 +22,7 @@ export class RoutesService {
         `${apiBaseUrl}/repos/${owner}/${repo}/commits/${branch}`,
       ADD_LABEL: (owner: string, repo: string, issueNumber: number) =>
         `${apiBaseUrl}/repos/${owner}/${repo}/issues/${issueNumber}/labels`,
+      CREATE_LABEL: (owner: string, repo: string) => `${apiBaseUrl}/repos/${owner}/${repo}/labels`,
       DELETE_LABEL: (owner: string, repo: string, issueNumber: number, labelName: string) =>
         `${apiBaseUrl}/repos/${owner}/${repo}/issues/${issueNumber}/labels/${labelName}`,
       GET_BRANCH: (owner: string, repo: string, branch: string) =>
